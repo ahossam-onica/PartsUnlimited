@@ -4,68 +4,35 @@
 # https://docs.microsoft.com/azure/devops/pipelines/apps/aspnet/build-aspnet-4
 
 trigger:
-- master
+- chadmcrowell-patch-1
 
-stages:
-- stage: Build
-  jobs:
-  - job: Build
+pool:
+  name: Hosted VS2017
+  demands: 
+  - msbuild
+  - visualstudio
+  - vstest
 
-    pool:
-      name: Hosted VS2017
-      demands: 
-      - msbuild
-      - visualstudio
-      - vstest
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
 
-    variables:
-      solution: '**/*.sln'
-      buildPlatform: 'Any CPU'
-      buildConfiguration: 'Release'
+steps:
+- task: NuGetToolInstaller@1
 
-    steps:
-    - task: NuGetToolInstaller@1
+- task: NuGetCommand@2
+  inputs:
+    restoreSolution: '$(solution)'
 
-    - task: NuGetCommand@2
-      inputs:
-        restoreSolution: '$(solution)'
+- task: VSBuild@1
+  inputs:
+    solution: '$(solution)'
+    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
+    platform: '$(buildPlatform)'
+    configuration: '$(buildConfiguration)'
 
-    - task: VSBuild@1
-      inputs:
-        solution: '$(solution)'
-        msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactStagingDirectory)"'
-        platform: '$(buildPlatform)'
-        configuration: '$(buildConfiguration)'
-
-    - task: VSTest@2
-      inputs:
-        platform: '$(buildPlatform)'
-        configuration: '$(buildConfiguration)'
-
-    - task: PublishBuildArtifacts@1
-      inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        ArtifactName: 'drop'
-        publishLocation: 'Container'
-
-- stage: Deploy
-  jobs:
-  - job: Deploy
-    pool:
-      name: Hosted VS2017
-    steps:
-
-    - task: DownloadBuildArtifacts@0
-      inputs:
-        buildType: 'current'
-        downloadType: 'single'
-        downloadPath: '$(System.ArtifactsDirectory)'
-        artifactName: 'drop'
-
-    - task: AzureRmWebAppDeployment@4
-      inputs:
-        ConnectionType: 'AzureRM'
-        azureSubscription: 'Azure-sub-1(ae560fc5-1212-43e6-bc54-248b7140f21f)'
-        appType: 'webApp'
-        WebAppName: 'webapp-223843'
-        packageForLinux: '$(System.ArtifactsDirectory)/drop/*.zip'
+- task: VSTest@2
+  inputs:
+    platform: '$(buildPlatform)'
+    configuration: '$(buildConfiguration)'
